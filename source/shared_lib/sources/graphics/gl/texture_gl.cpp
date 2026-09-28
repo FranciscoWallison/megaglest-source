@@ -33,6 +33,23 @@ bool TextureGl::enableATIHacks = false;
 static void setupGLExtensionMethods() {
 #ifdef WIN32
 
+    // With glad, the gl* names are function-pointer macros (e.g.
+    // #define glGetString glad_glGetString) that stay NULL until gladLoadGL()
+    // runs, and that only happens once a GL context is current. TextureGl
+    // objects are constructed before the window exists (glestMain creates a
+    // Texture2D through Renderer::newTexture2D before MainWindow), so without
+    // this guard the isGlExtensionSupported() call below jumps through a NULL
+    // pointer and the process dies with an access violation at startup.
+    //
+    // With GLEW this was harmless: glGetString resolved to the opengl32.dll
+    // import, which returns NULL when there is no current context.
+    //
+    // Returning early leaves setupExtensions true on purpose, so the setup runs
+    // on the next texture, by which time the context and the loader are ready.
+    if (glGetString == NULL) {
+        return;
+    }
+
     static bool setupExtensions = true;
     if (setupExtensions == true) {
         setupExtensions = false;
